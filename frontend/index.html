@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Resume App</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <h1>Resume App</h1>
+        <div id="auth">
+            <h2>Login/Register</h2>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="register()">Register</button>
+            <button onclick="login()">Login</button>
+        </div>
+        <div id="resumes" style="display:none;">
+            <h2>Your Resumes</h2>
+            <ul id="resume-list"></ul>
+            <h3>Add New Resume</h3>
+            <input type="text" id="title" placeholder="Title">
+            <textarea id="content" placeholder="Content"></textarea>
+            <button onclick="addResume()">Add</button>
+        </div>
+        <div id="resume-detail" style="display:none;">
+            <h2>Resume Detail</h2>
+            <p id="detail-title"></p>
+            <p id="detail-content"></p>
+            <button onclick="improveResume()">Improve</button>
+            <p id="improved-content"></p>
+        </div>
+    </div>
+    <script>
+        let token = null;
+        let currentResumeId = null;
+
+        async function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            try {
+                const response = await axios.post('http://localhost:8000/users/register', { email, password });
+                await login(); // Автоматическая авторизация после регистрации
+            } catch (error) {
+                alert('Error registering: ' + error.message);
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            try {
+                const response = await axios.post('http://localhost:8000/users/login', { email, password });
+                token = response.data.access_token;
+                showResumes();
+            } catch (error) {
+                alert('Error logging in: ' + error.message);
+            }
+        }
+
+        async function showResumes() {
+            document.getElementById('auth').style.display = 'none';
+            document.getElementById('resumes').style.display = 'block';
+            try {
+                const response = await axios.get('http://localhost:8000/resumes/', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const list = document.getElementById('resume-list');
+                list.innerHTML = '';
+                response.data.forEach(resume => {
+                    const li = document.createElement('li');
+                    li.innerText = resume.title;
+                    li.onclick = () => showResumeDetail(resume.id, resume.title, resume.content);
+                    list.appendChild(li);
+                });
+            } catch (error) {
+                alert('Error fetching resumes: ' + error.message);
+            }
+        }
+
+        async function addResume() {
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            try {
+                await axios.post('http://localhost:8000/resumes/', { title, content }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                showResumes();
+            } catch (error) {
+                alert('Error adding resume: ' + error.message);
+            }
+        }
+
+        function showResumeDetail(id, title, content) {
+            currentResumeId = id;
+            document.getElementById('resumes').style.display = 'none';
+            document.getElementById('resume-detail').style.display = 'block';
+            document.getElementById('detail-title').innerText = title;
+            document.getElementById('detail-content').innerText = content;
+            document.getElementById('improved-content').innerText = '';
+        }
+
+        async function improveResume() {
+            try {
+                const response = await axios.post(`http://localhost:8000/resumes/${currentResumeId}/improve`, {}, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                document.getElementById('improved-content').innerText = response.data.improved_content;
+            } catch (error) {
+                alert('Error improving resume: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
